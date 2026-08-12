@@ -42,6 +42,14 @@ class MLP():
         nabla_b[-1] = delta
         nabla_w[-1] = np.matmul(delta, a_per_layer[-2].transpose())
 
+        # Computing the gradient by going backwards layer by layer
+        for l in range(2,self.no_of_layers):
+            delta = np.matmul(self.weights[-l+1].transpose(),delta) * sigmoid_prime(z_per_layer[-l])
+            nabla_b[-l] = delta
+            nabla_w = np.outer(delta , a_per_layer[-l-1]) # Since we have explicit column vectors, delta and a_per_layer[-l-1], both with shapes (16,1), 
+                                                          # we could have just said nabla_w = delta @ a_per_layer[-l-1]. However, I wanted to make it
+                                                          # clear that this is an outer product of vectors. 
+        return nabla_b, nabla_w
 
         
 
@@ -68,10 +76,14 @@ training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
 training_data = list(training_data)
 
 ### Some stuff to implement fully vectorised feed_forward() and backprop() methods
-X = [x[0] for x in training_data] 
-X_matrix = np.hstack(X)
-print(X_matrix.shape)
-print(np.array(X[0]).shape)
+# X = [x[0] for x in training_data] 
+# X_matrix = np.hstack(X)
+# print(X_matrix.shape)
+# print(np.array(X[0]).shape)
 
-# test_NN = MLP([784,16,16,10])
-# test_NN.feed_forward(x=training_data[0][0])
+test_NN = MLP([784,16,16,10])
+test_x, test_y = training_data[0]
+A, Z = test_NN.feed_forward(test_x, return_inner_layers=True)
+delta = test_NN.backprop(test_x, test_y)
+
+print(A[-1].shape, A[-2].shape)
