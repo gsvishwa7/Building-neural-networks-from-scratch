@@ -44,7 +44,7 @@ class MLP():
         for l in range(2,self.no_of_layers):
             delta = np.matmul(self.weights[-l+1].transpose(),delta) * sigmoid_prime(z_per_layer[-l])
             nabla_b[-l] = delta
-            nabla_w = np.outer(delta , a_per_layer[-l-1]) # Since we have explicit column vectors, delta and a_per_layer[-l-1], both with shapes (16,1), 
+            nabla_w[-l] = np.outer(delta , a_per_layer[-l-1]) # Since we have explicit column vectors, delta and a_per_layer[-l-1], both with shapes (16,1), 
                                                           # we could have just said nabla_w = delta @ a_per_layer[-l-1].T. However, I wanted to make it
                                                           # clear that this is an outer product of vectors. 
         return nabla_b, nabla_w
@@ -84,17 +84,20 @@ class MLP():
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, eta)
             if test_data:
-                print("Epoch {} : {} / {}".format(j,self.evaluate(test_data),n_test))
+                print(f"Epoch {j} : {self.evaluate(test_data)} / {n_test}")
             else:
-                print("Epoch {} complete".format(j))
+                print(f"Epoch {j+1} complete")
 
     def evaluate(self, test_data):
         """Return the number of test inputs for which the neural
         network outputs the correct result. Note that the neural
         network's output is assumed to be the index of whichever
         neuron in the final layer has the highest activation."""
-        test_results = [(np.argmax(self.feedforward(x)), y)
-                        for (x, y) in test_data]
+        # Evaluate the neural network against test data
+        # Output of the network is the node with the highest activation in the final layer
+        test_results = [(np.argmax(self.feed_forward(x, return_inner_layers = False)), y) for (x, y) in test_data]
+
+        # Return the number of test inputs for which the neural network outputs the correct result.
         return sum(int(x == y) for (x, y) in test_results)
 
 
@@ -115,7 +118,11 @@ def sigmoid_prime(z):
 ### Load data
 training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
 training_data = list(training_data)
-
+test_data = list(test_data)
+### Initialise and train the neural network
+my_first_neural_net = MLP([784,16,16,10])
+my_first_neural_net.SGD(training_data, epochs = 50, mini_batch_size=20, eta=4)
+print(f'{my_first_neural_net.evaluate(test_data)} / {len(test_data)} correct.')
 
 ### Some stuff to implement fully vectorised feed_forward() and backprop() methods
 # X = [x[0] for x in training_data]
@@ -130,6 +137,9 @@ training_data = list(training_data)
 # test_NN = MLP([784,16,16,10])
 # test_x, test_y = training_data[0]
 # A, Z = test_NN.feed_forward(test_x, return_inner_layers=True)
-# delta = test_NN.backprop(test_x, test_y)
-
+# nabla_b, nabla_w = test_NN.backprop(test_x, test_y)
+# for i in range(len(nabla_b)):
+#     print(np.array(nabla_b[i]).shape)
+#     print(np.array(nabla_w[i]).shape)
+#     print(A[i].shape)
 # print(A[-1].shape, A[-2].shape)
