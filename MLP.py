@@ -124,12 +124,6 @@ my_first_neural_net = MLP([784,16,16,10])
 my_first_neural_net.SGD(training_data, epochs = 50, mini_batch_size=20, eta=4)
 print(f'{my_first_neural_net.evaluate(test_data)} / {len(test_data)} correct.')
 
-### Some stuff to implement fully vectorised feed_forward() and backprop() methods
-# X = [x[0] for x in training_data]
-# print(np.array(X).shape)
-# X_matrix = np.hstack(X)
-# print(X_matrix.shape)
-# print(np.array(X[0]).shape)
 
 # Y = [y[1] for y in training_data]
 # print(np.array(Y).shape)
@@ -143,3 +137,7 @@ print(f'{my_first_neural_net.evaluate(test_data)} / {len(test_data)} correct.')
 #     print(np.array(nabla_w[i]).shape)
 #     print(A[i].shape)
 # print(A[-1].shape, A[-2].shape)
+
+
+
+
