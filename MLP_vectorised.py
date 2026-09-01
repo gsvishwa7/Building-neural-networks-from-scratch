@@ -3,13 +3,14 @@ import numpy as np
 import random
 import mnist_loader
 
+"""The key idea behind the fully vectorised feed_forward() and backprop() methods is to 
+change the shape of the inpute image data from 50000 x 784 x 1 to 784 x 50000.
+Each column of this reshaped training data corresponds to one input. In this manner,
+we are able to compute the action of weight matrices on each column *individually yet 
+simultaneously* as part of ordinary matrix multiplication. As a result, we are 
+computing the activations corresponding to all the inputs at once, instead of having to 
+loop over the inputs."""
 
-### The key idea behind the fully vectorised feed_forward() and backprop() methods is to 
-### change the shape of the inpute image data from 50000 x 784 x 1 to 784 x 50000.
-### Each column of this reshaped training data corresponds to one input. In this manner,
-### we are able to compute the action of weight matrices on each column individually as part
-### of ordinary matrix multiplication. As a result, we are computing the activations
-### corresponding to all the inputs at once, instead of having to loop over the inputs.
 
 # X = [x[0] for x in training_data]
 # print(f'{np.array(X).shape}, shape of each element: {np.array(X[0]).shape}')
@@ -61,30 +62,23 @@ class MLP_enhanced():
             # Element-wise multiplication for the error
             delta = (a_per_layer[-1] - Y) * sigmoid_prime(z_per_layer[-1])
             
-            # Sum across the batch dimension (axis=1) to get a column vector of shape (out_neurons, 1)
-            nabla_b[-1] = np.sum(delta, axis=1, keepdims=True)
+            # Average across the batch dimension (axis=1) to get a column vector of shape (out_neurons, 1)
+            nabla_b[-1] = (1 / X.shape[1]) * np.sum(delta, axis=1, keepdims=True)
             
             # einsum 'ik,jk->ij' computes the outer product and sums over the batch dimension 'k'
-            nabla_w[-1] = np.einsum('ik,jk->ij', delta, a_per_layer[-2])
+            nabla_w[-1] = (1 / X.shape[1]) * np.einsum('ik,jk->ij', delta, a_per_layer[-2])
 
             # Computing the gradient by going backwards layer by layer
             for l in range(2, self.no_of_layers):
                 delta = np.matmul(self.weights[-l+1].transpose(), delta) * sigmoid_prime(z_per_layer[-l])
                 
-                # Again, sum across the batch dimension for biases
-                nabla_b[-l] = np.sum(delta, axis=1, keepdims=True)
+                # Average across the batch dimension for biases
+                nabla_b[-l] = (1/ X.shape[1]) * np.sum(delta, axis=1, keepdims=True)
                 
-                # Again, let einsum sum across the batch dimension 'k' for weights
-                nabla_w[-l] = np.einsum('ik,jk->ij', delta, a_per_layer[-l-1])
+                # Average across the batch dimension 'k' for weights
+                nabla_w[-l] = (1 / X.shape[1]) * np.einsum('ik,jk->ij', delta, a_per_layer[-l-1])
                 
             return nabla_b, nabla_w
-
-    def update_mini_batch(self, X, Y, eta):
-        nabla_b, nabla_w = self.backprop(X, Y)
-        change_in_biases = np.einsum('ij->i', nabla_b)
-        change_in_weights = np.einsum('ijk->ij', nabla_w)
-        self.weights = [w-(eta/X.shape[1])*nw for w, nw in zip(self.weights, change_in_weights)] 
-        self.biases = [b-(eta/X.shape[1])*nb for b, nb in zip(self.biases, change_in_biases)] 
     
     def SGD(self, training_data, mini_batch_size, epochs, eta, test_data=None):
         """Train the neural network using stochastic gradient descent. 
@@ -96,9 +90,9 @@ class MLP_enhanced():
                                             # Each tuple contains (784x1,10x1) column vectors and there are 50000 such tuples.       
         n = len(training_data)
 
-        # if test_data:
-        #     test_data = list(test_data)
-        #     n_test = len(test_data)
+        if test_data:
+            test_data = list(test_data)
+            n_test = len(test_data)
 
         for j in range(epochs):
             random.shuffle(training_data)
@@ -106,12 +100,22 @@ class MLP_enhanced():
             for mini_batch in mini_batches:
                 X = np.hstack([x[0] for x in mini_batch])
                 Y = np.hstack([y[1] for y in mini_batch])
-                self.update_mini_batch(X, Y, eta)
-            # if test_data:
-            #     print(f"Epoch {j} : {self.evaluate(test_data)} / {n_test}")
-            # else:
-            #     print(f"Epoch {j+1} complete")
-            print(f'Epoch {j+1} complete.')
+                nabla_b, nabla_w = self.backprop(X,Y)
+                self.biases = [b - eta*delta_b for b, delta_b in zip(self.biases, nabla_b)]
+                self.weights = [w - eta*delta_w for w, delta_w in zip(self.weights, nabla_w)]
+            if test_data:
+                print(f"Epoch {j+1} : {self.evaluate(test_data)} / {n_test}")
+            else:
+                print(f"Epoch {j+1} complete")
+
+
+    def evaluate(self, test_data):  
+        """test_data contains 10,000 tuples (x,y) where x is 784 x 1 and y is just an integer labelling what the image should be."""
+        X = np.hstack([data[0] for data in test_data])
+        Y = np.array([data[1] for data in test_data])
+        output = np.argmax(self.feed_forward(X,return_inner_layers=False), axis = 0)
+        correct = (output == Y)
+        return np.sum(correct)
 
 ### Load data
 training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
@@ -120,4 +124,5 @@ training_data = list(training_data) # Contains 50000 tuples, each of the form (7
 test_data = list(test_data)
 
 my_NN = MLP_enhanced([784,16,16,10])
-my_NN.SGD(training_data, epochs = 10, mini_batch_size=200, eta=3)
+my_NN.SGD(training_data, epochs = 10, mini_batch_size=200, eta=3, test_data = test_data)
+print(f'Number of correct predictions: {my_NN.evaluate(test_data)}.')
